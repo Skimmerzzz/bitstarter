@@ -39,16 +39,20 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
-var cheerioHtmlFile = function(htmlfile) {
-    return cheerio.load(fs.readFileSync(htmlfile));
+var cheerioHtmlFile = function(htmlFileName) {
+    return cheerio.load(fs.readFileSync(htmlFileName));
+};
+
+var cheerioHtmlFromUrl = function(htmlFileFromUrl) {
+	return cheerio.load(htmlFileFromUrl);
 };
 
 var loadChecks = function(checksfile) {
     return JSON.parse(fs.readFileSync(checksfile));
 };
 
-var checkHtmlFile = function(htmlfile, checksfile) {
-    $ = cheerioHtmlFile(htmlfile);
+var checkHtmlFile = function(htmlContent, checksfile) {
+    $ = htmlContent;
     var checks = loadChecks(checksfile).sort();
     var out = {};
     for(var ii in checks) {
@@ -64,7 +68,19 @@ var clone = function(fn) {
     return fn.bind({});
 };
 
-var getFileFromUrlResult;
+var getFileFromUrl = function(result) {
+	if (result instanceof Error) {
+		 console.error('Error: ' + result.message);
+		 process.exit(1);
+	 } else {
+		checkJson = checkHtmlFile(cheerioHtmlFromUrl(result), program.checks);
+		outJson = JSON.stringify(checkJson, null, 4);
+		console.log(outJson);
+	 }
+};
+
+var checkJson,
+    outJson;
 
 if(require.main == module) {
     program
@@ -73,18 +89,10 @@ if(require.main == module) {
 	.option('-u, --url <url_to_html_file>', 'URL to index.html')
         .parse(process.argv);
     if ( program.url ) {
-	getFileFromUrlResult = rest.get(program.url).on('complete', function(result) {
-		if (result instanceof Error) {
-			console.error('Error: ' + result.message);
-			process.exit(1);
-		} else {
-			console.error('Response:\n' + result);
-		}
-	}) ;
-	//console.log(getFileFromUrlResult.message);
+	rest.get(program.url).on('complete', getFileFromUrl);
     } else {
-        var checkJson = checkHtmlFile(program.file, program.checks);
-        var outJson = JSON.stringify(checkJson, null, 4);
+        checkJson = checkHtmlFile(cheerioHtmlFile(program.file), program.checks);
+        outJson = JSON.stringify(checkJson, null, 4);
         console.log(outJson);
     }
 } else {
